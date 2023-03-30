@@ -1,14 +1,18 @@
-use swf::avm1::read::Reader;
-use swf::avm1::types::{Action, DefineFunction2, Value};
-use swf::SwfStr;
-use byteorder::{LittleEndian, ReadBytesExt};
-use swf::error::Error;
-use crate::ast::ASIdentifier;
 use crate::ast::binary_expr::{BinaryExpression, BinaryExpressionType};
-use crate::ast::expr::{ASExpression, ASFunctionCallExpression, ASGetMemberExpression, ASReferenceExpression};
-use crate::ast::statement::{DefineLocal, FunctionDeclaration, SetMember, SetVariable, Statement, StoreRegister};
+use crate::ast::expr::{
+    ASExpression, ASFunctionCallExpression, ASGetMemberExpression, ASReferenceExpression,
+};
+use crate::ast::statement::{
+    DefineLocal, FunctionDeclaration, SetMember, SetVariable, Statement, StoreRegister,
+};
 use crate::ast::unary_expr::{UnaryExpression, UnaryExpressionType};
 use crate::ast::variant::Variant;
+use crate::ast::ASIdentifier;
+use byteorder::{LittleEndian, ReadBytesExt};
+use swf::avm1::read::Reader;
+use swf::avm1::types::{Action, DefineFunction2, Value};
+use swf::error::Error;
+use swf::SwfStr;
 
 pub struct Avm1Decompiler<'a> {
     pub reader: Reader<'a>,
@@ -44,10 +48,12 @@ impl<'a> Avm1Decompiler<'a> {
         let mut action = self.reader.read_action();
         while let Ok(a) = action {
             match a {
-                Action::DefineFunction2(define) =>
-                    statements.push(Statement::FunctionDeclaration(self.decompile_define_function(define)?)),
-                Action::DefineFunction(define) =>
-                    statements.push(Statement::FunctionDeclaration(self.decompile_define_function(define.into())?)),
+                Action::DefineFunction2(define) => statements.push(Statement::FunctionDeclaration(
+                    self.decompile_define_function(define)?,
+                )),
+                Action::DefineFunction(define) => statements.push(Statement::FunctionDeclaration(
+                    self.decompile_define_function(define.into())?,
+                )),
                 Action::CallFunction => {
                     let name = ASReferenceExpression::from_expression(self.stack.pop().unwrap());
                     let num_args = match self.stack.pop().unwrap() {
@@ -62,9 +68,11 @@ impl<'a> Avm1Decompiler<'a> {
                         args.push(self.stack.pop().unwrap());
                     }
 
-                    self.stack.push(ASExpression::CallFunction(ASFunctionCallExpression {
-                        name, args,
-                    }))
+                    self.stack
+                        .push(ASExpression::CallFunction(ASFunctionCallExpression {
+                            name,
+                            args,
+                        }))
                 }
                 Action::Push(push) => {
                     for value in push.values.iter() {
@@ -75,9 +83,15 @@ impl<'a> Avm1Decompiler<'a> {
                             Value::Int(val) => ASExpression::Literal(Variant::Int(*val)),
                             Value::Float(val) => ASExpression::Literal(Variant::Float(*val)),
                             Value::Double(val) => ASExpression::Literal(Variant::Double(*val)),
-                            Value::ConstantPool(id) => ASExpression::Literal(Variant::String(self.symbols[*id as usize].to_string())),
-                            Value::Register(id) => ASExpression::Reference(ASReferenceExpression::Register(*id)),
-                            Value::Str(val) => ASExpression::Literal(Variant::String(self.fill_string(val))),
+                            Value::ConstantPool(id) => ASExpression::Literal(Variant::String(
+                                self.symbols[*id as usize].to_string(),
+                            )),
+                            Value::Register(id) => {
+                                ASExpression::Reference(ASReferenceExpression::Register(*id))
+                            }
+                            Value::Str(val) => {
+                                ASExpression::Literal(Variant::String(self.fill_string(val)))
+                            }
                         })
                     }
                 }
@@ -103,16 +117,19 @@ impl<'a> Avm1Decompiler<'a> {
                 Action::GetMember => {
                     let name = ASReferenceExpression::from_expression(self.stack.pop().unwrap());
                     let object = ASReferenceExpression::from_expression(self.stack.pop().unwrap());
-                    self.stack.push(ASExpression::GetMember(ASGetMemberExpression {
-                        name: Box::new(name),
-                        object: Box::new(object),
-                    }))
+                    self.stack
+                        .push(ASExpression::GetMember(ASGetMemberExpression {
+                            name: Box::new(name),
+                            object: Box::new(object),
+                        }))
                 }
                 Action::InitArray => {
                     let num_elements = self.stack.pop().unwrap();
 
                     let value = ASExpression::Literal(Variant::Array(match num_elements {
-                        ASExpression::Literal(Variant::Int(i)) => (0..i).map(|_| self.stack.pop().unwrap()).collect(),
+                        ASExpression::Literal(Variant::Int(i)) => {
+                            (0..i).map(|_| self.stack.pop().unwrap()).collect()
+                        }
                         _ => {
                             eprintln!("Tried to init array with non-constant size");
                             vec![]
@@ -124,7 +141,8 @@ impl<'a> Avm1Decompiler<'a> {
                     let num_props = self.stack.pop().unwrap();
                     match num_props {
                         ASExpression::Literal(Variant::Int(i)) => {
-                            let mut map = Vec::<(ASExpression, ASExpression)>::with_capacity(i as usize);
+                            let mut map =
+                                Vec::<(ASExpression, ASExpression)>::with_capacity(i as usize);
                             for _ in 0..i {
                                 let value = self.stack.pop().unwrap();
                                 let name = self.stack.pop().unwrap();
@@ -176,7 +194,9 @@ impl<'a> Avm1Decompiler<'a> {
                 }
 
                 Action::Subtract => self.decompile_binary_expr(BinaryExpressionType::Subtract),
-                Action::Add | Action::Add2 | Action::StringAdd => self.decompile_binary_expr(BinaryExpressionType::Add),
+                Action::Add | Action::Add2 | Action::StringAdd => {
+                    self.decompile_binary_expr(BinaryExpressionType::Add)
+                }
                 Action::Divide => self.decompile_binary_expr(BinaryExpressionType::Divide),
                 Action::Multiply => self.decompile_binary_expr(BinaryExpressionType::Multiply),
                 Action::Modulo => self.decompile_binary_expr(BinaryExpressionType::Modulo),
@@ -188,13 +208,21 @@ impl<'a> Avm1Decompiler<'a> {
                 Action::BitRShift => self.decompile_binary_expr(BinaryExpressionType::BitRShift),
                 Action::BitLShift => self.decompile_binary_expr(BinaryExpressionType::BitLShift),
 
-                Action::Greater | Action::StringGreater => self.decompile_binary_expr(BinaryExpressionType::Greater),
-                Action::Less2 | Action::Less | Action::StringLess => self.decompile_binary_expr(BinaryExpressionType::Less),
+                Action::Greater | Action::StringGreater => {
+                    self.decompile_binary_expr(BinaryExpressionType::Greater)
+                }
+                Action::Less2 | Action::Less | Action::StringLess => {
+                    self.decompile_binary_expr(BinaryExpressionType::Less)
+                }
                 Action::Not => self.decompile_unary_expr(UnaryExpressionType::Not),
                 Action::Or => self.decompile_binary_expr(BinaryExpressionType::LogicalOr),
                 Action::And => self.decompile_binary_expr(BinaryExpressionType::LogicalAnd),
-                Action::StrictEquals => self.decompile_binary_expr(BinaryExpressionType::StrictEquals),
-                Action::Equals | Action::Equals2 | Action::StringEquals => self.decompile_binary_expr(BinaryExpressionType::Equals),
+                Action::StrictEquals => {
+                    self.decompile_binary_expr(BinaryExpressionType::StrictEquals)
+                }
+                Action::Equals | Action::Equals2 | Action::StringEquals => {
+                    self.decompile_binary_expr(BinaryExpressionType::Equals)
+                }
 
                 Action::Increment => self.decompile_unary_expr(UnaryExpressionType::Increment),
                 Action::Decrement => self.decompile_unary_expr(UnaryExpressionType::Decrement),
@@ -230,9 +258,14 @@ impl<'a> Avm1Decompiler<'a> {
         }))
     }
 
-    fn decompile_define_function(&mut self, function: DefineFunction2) -> Result<FunctionDeclaration, Error> {
+    fn decompile_define_function(
+        &mut self,
+        function: DefineFunction2,
+    ) -> Result<FunctionDeclaration, Error> {
         let mut register = Vec::<ASExpression>::with_capacity(function.register_count as usize);
-        register.push(ASExpression::Reference(ASReferenceExpression::Identifier("this".to_string())));
+        register.push(ASExpression::Reference(ASReferenceExpression::Identifier(
+            "this".to_string(),
+        )));
         for _ in 1..function.register_count {
             register.push(ASExpression::Literal(Variant::Uninitialized));
         }
@@ -246,13 +279,14 @@ impl<'a> Avm1Decompiler<'a> {
         }
 
         let body = {
-            let mut body_transpiler = Avm1Decompiler::with_register(function.actions, self.symbols, register);
+            let mut body_transpiler =
+                Avm1Decompiler::with_register(function.actions, self.symbols, register);
             body_transpiler.decompile().unwrap()
         };
 
         Ok(FunctionDeclaration {
             identifier: ASIdentifier {
-                name: self.fill_string(function.name)
+                name: self.fill_string(function.name),
             },
             flags: function.flags,
             parameters: params,

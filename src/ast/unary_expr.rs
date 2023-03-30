@@ -1,12 +1,11 @@
-use std::fmt::{Display, Formatter};
 use crate::ast::expr::ASExpression;
+use std::fmt::{Display, Formatter};
 
 #[derive(Debug, Clone)]
 pub struct UnaryExpression {
     pub target: Box<ASExpression>,
     pub expression_type: UnaryExpressionType,
 }
-
 
 #[derive(Debug, Clone)]
 pub enum UnaryExpressionType {

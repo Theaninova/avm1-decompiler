@@ -1,12 +1,12 @@
-mod test_constants;
 mod ast;
 mod decompiler;
+mod test_constants;
 
+use crate::decompiler::Avm1Decompiler;
+use crate::test_constants::LMD_SYMBOLS;
 use std::fs;
 use swf::avm1::read::Reader;
 use swf::extensions::ReadSwfExt;
-use crate::decompiler::Avm1Decompiler;
-use crate::test_constants::LMD_SYMBOLS;
 
 fn main() {
     let data = fs::read(PATH).unwrap();
@@ -26,4 +26,5 @@ fn main() {
     }
 }
 
-const PATH: &str = "E:\\Games\\W5X\\data_jp\\flash\\DRIVE\\Race\\Meter\\METER_NORMAL_D000\\METER_NORMAL_D000.abc";
+const PATH: &str =
+    "E:\\Games\\W5X\\data_jp\\flash\\DRIVE\\Race\\Meter\\METER_NORMAL_D000\\METER_NORMAL_D000.abc";

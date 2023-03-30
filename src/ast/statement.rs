@@ -1,7 +1,7 @@
+use crate::ast::expr::{ASExpression, ASReferenceExpression};
+use crate::ast::ASIdentifier;
 use std::fmt::{Display, Formatter};
 use swf::avm1::types::FunctionFlags;
-use crate::ast::ASIdentifier;
-use crate::ast::expr::{ASExpression, ASReferenceExpression};
 
 #[derive(Debug)]
 pub enum Statement {
@@ -21,18 +21,22 @@ impl Display for Statement {
             Statement::FunctionDeclaration(x) => writeln!(f, "{}", x),
             Statement::DefineLocal(x) => writeln!(f, "var {} = {}", x.left, x.right),
             Statement::SetVariable(x) => writeln!(f, "{} = {}", x.left, x.right),
-            Statement::SetMember(x) => {
-                match &x.name {
-                    ASReferenceExpression::Identifier(identifier) => writeln!(f, "{}.{} = {}", x.object, identifier, x.value),
-                    ASReferenceExpression::Register(reg) => writeln!(f, "{}[${}] = {}", x.object, reg, x.value),
-                    ASReferenceExpression::Expression(expr) => writeln!(f, "{}[{}] = {}", x.object, expr, x.value),
+            Statement::SetMember(x) => match &x.name {
+                ASReferenceExpression::Identifier(identifier) => {
+                    writeln!(f, "{}.{} = {}", x.object, identifier, x.value)
                 }
-            }
+                ASReferenceExpression::Register(reg) => {
+                    writeln!(f, "{}[${}] = {}", x.object, reg, x.value)
+                }
+                ASReferenceExpression::Expression(expr) => {
+                    writeln!(f, "{}[{}] = {}", x.object, expr, x.value)
+                }
+            },
             Statement::StoreRegister(x) => writeln!(f, "${} = {}", x.id, x.value),
             Statement::UnknownStatement(x) => writeln!(f, "??? {}", x),
             Statement::Return(value) => match value {
                 Some(value) => writeln!(f, "return {}", value),
-                None => writeln!(f, "return")
+                None => writeln!(f, "return"),
             },
             Statement::ExpressionStatement(expression) => writeln!(f, "{}", expression),
         }

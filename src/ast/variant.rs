@@ -1,5 +1,5 @@
-use std::fmt::{Display, Formatter};
 use crate::ast::expr::ASExpression;
+use std::fmt::{Display, Formatter};
 
 #[derive(Debug, Clone)]
 pub enum Variant {
@@ -31,7 +31,8 @@ impl Display for Variant {
                 write!(f, "[{}]", members_fmt.join(", "))
             }
             Variant::Object(value) => {
-                let members_fmt: Vec<String> = value.iter().map(|(a, b)| format!("{}: {}", a, b)).collect();
+                let members_fmt: Vec<String> =
+                    value.iter().map(|(a, b)| format!("{}: {}", a, b)).collect();
                 write!(f, "{{{}}}", members_fmt.join(", "))
             }
         }

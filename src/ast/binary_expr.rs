@@ -1,5 +1,5 @@
-use std::fmt::{Display, Formatter};
 use crate::ast::expr::ASExpression;
+use std::fmt::{Display, Formatter};
 
 #[derive(Debug, Clone)]
 pub struct BinaryExpression {
@@ -31,24 +31,28 @@ pub enum BinaryExpressionType {
 
 impl Display for BinaryExpressionType {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", match self {
-            BinaryExpressionType::Less => "<",
-            BinaryExpressionType::Greater => ">",
-            BinaryExpressionType::Add => "+",
-            BinaryExpressionType::BitOr => "|",
-            BinaryExpressionType::BitAnd => "&",
-            BinaryExpressionType::BitLShift => "<<",
-            BinaryExpressionType::BitRShift => ">>",
-            BinaryExpressionType::BitURShift => ">>>",
-            BinaryExpressionType::BitXor => "^",
-            BinaryExpressionType::Divide => "/",
-            BinaryExpressionType::Multiply => "*",
-            BinaryExpressionType::Modulo => "%",
-            BinaryExpressionType::Subtract => "-",
-            BinaryExpressionType::Equals => "==",
-            BinaryExpressionType::LogicalAnd => "&&",
-            BinaryExpressionType::LogicalOr => "||",
-            BinaryExpressionType::StrictEquals => "==="
-        })
+        write!(
+            f,
+            "{}",
+            match self {
+                BinaryExpressionType::Less => "<",
+                BinaryExpressionType::Greater => ">",
+                BinaryExpressionType::Add => "+",
+                BinaryExpressionType::BitOr => "|",
+                BinaryExpressionType::BitAnd => "&",
+                BinaryExpressionType::BitLShift => "<<",
+                BinaryExpressionType::BitRShift => ">>",
+                BinaryExpressionType::BitURShift => ">>>",
+                BinaryExpressionType::BitXor => "^",
+                BinaryExpressionType::Divide => "/",
+                BinaryExpressionType::Multiply => "*",
+                BinaryExpressionType::Modulo => "%",
+                BinaryExpressionType::Subtract => "-",
+                BinaryExpressionType::Equals => "==",
+                BinaryExpressionType::LogicalAnd => "&&",
+                BinaryExpressionType::LogicalOr => "||",
+                BinaryExpressionType::StrictEquals => "===",
+            }
+        )
     }
 }

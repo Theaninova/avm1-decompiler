@@ -1,10 +1,10 @@
 use std::fmt::{Display, Formatter};
 
 pub mod binary_expr;
-pub mod unary_expr;
 pub mod expr;
-pub mod variant;
 pub mod statement;
+pub mod unary_expr;
+pub mod variant;
 
 #[derive(Debug, Clone)]
 pub struct ASIdentifier {
