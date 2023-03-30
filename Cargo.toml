@@ -1,5 +1,5 @@
 [package]
-name = "avm1gd"
+name = "avm1-decompiler"
 version = "0.1.0"
 edition = "2021"
 
