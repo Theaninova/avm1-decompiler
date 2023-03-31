@@ -1,4 +1,4 @@
-use crate::ast::expr::ASExpression;
+use crate::ast::expr::Expression;
 use std::fmt::{Display, Formatter};
 
 #[derive(Debug, Clone)]
@@ -11,8 +11,8 @@ pub enum Variant {
     Float(f32),
     Double(f64),
     String(String),
-    Array(Vec<ASExpression>),
-    Object(Vec<(ASExpression, ASExpression)>),
+    Array(Vec<Expression>),
+    Object(Vec<(Expression, Expression)>),
 }
 
 impl Display for Variant {
@@ -23,8 +23,8 @@ impl Display for Variant {
             Variant::Null => write!(f, "null"),
             Variant::Bool(value) => write!(f, "{}", value),
             Variant::Int(value) => write!(f, "{}", value),
-            Variant::Float(value) => write!(f, "{:?}f", value),
-            Variant::Double(value) => write!(f, "{:?}d", value),
+            Variant::Float(value) => write!(f, "{:?}", value),
+            Variant::Double(value) => write!(f, "{:?}", value),
             Variant::String(value) => write!(f, "\"{}\"", value),
             Variant::Array(value) => {
                 let members_fmt: Vec<String> = value.iter().map(|x| x.to_string()).collect();

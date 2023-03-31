@@ -1,10 +1,10 @@
-use crate::ast::expr::ASExpression;
+use crate::ast::expr::Expression;
 use std::fmt::{Display, Formatter};
 
 #[derive(Debug, Clone)]
 pub struct BinaryExpression {
-    pub left: Box<ASExpression>,
-    pub right: Box<ASExpression>,
+    pub left: Box<Expression>,
+    pub right: Box<Expression>,
     pub expression_type: BinaryExpressionType,
 }
 

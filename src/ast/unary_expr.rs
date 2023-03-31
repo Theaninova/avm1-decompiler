@@ -1,9 +1,9 @@
-use crate::ast::expr::ASExpression;
+use crate::ast::expr::Expression;
 use std::fmt::{Display, Formatter};
 
 #[derive(Debug, Clone)]
 pub struct UnaryExpression {
-    pub target: Box<ASExpression>,
+    pub target: Box<Expression>,
     pub expression_type: UnaryExpressionType,
 }
 

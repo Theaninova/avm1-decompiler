@@ -7,5 +7,6 @@ edition = "2021"
 
 [dependencies]
 binary-reader = "0.4.5"
+itertools = "0.10.5"
 byteorder = "1.4.3"
 swf = "0.2.0"
