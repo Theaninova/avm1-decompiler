@@ -1,6 +1,5 @@
 mod read;
 mod vm;
-
 use crate::ast::binary_expr::{BinaryExpression, BinaryExpressionType};
 use crate::ast::expr::{
     ASFunctionCallExpression, ASGetMemberExpression, Expression, ReferenceExpression,
@@ -14,7 +13,6 @@ use crate::ast::ASIdentifier;
 use crate::decompiler::vm::VirtualMachine;
 use itertools::Itertools;
 use std::borrow::Cow;
-use swf::avm1::read::Reader;
 use swf::avm1::types::{Action, DefineFunction2, Value};
 use swf::error::{Error, Result};
 use swf::UTF_8;
