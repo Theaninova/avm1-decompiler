@@ -1,6 +1,5 @@
-use crate::ast::binary_expr::BinaryExpression;
+use crate::ast::binary_expr::BinaryExpressionType;
 use crate::ast::statement::FunctionDeclaration;
-use crate::ast::unary_expr::UnaryExpression;
 use crate::ast::variant::Variant;
 use std::fmt::{Display, Formatter};
 
@@ -8,50 +7,65 @@ use std::fmt::{Display, Formatter};
 pub enum Expression {
     Reference(ReferenceExpression),
     Function(FunctionDeclaration),
-    GetMember(ASGetMemberExpression),
-    Binary(BinaryExpression),
-    Unary(UnaryExpression),
+    GetMember {
+        object: Box<ReferenceExpression>,
+        name: Box<ReferenceExpression>,
+    },
+    Binary {
+        left: Box<Expression>,
+        right: Box<Expression>,
+        expression_type: BinaryExpressionType,
+    },
+    Unary {
+        target: Box<Expression>,
+        expression_type: UnaryExpressionType,
+    },
     Literal(Variant),
-    CallFunction(ASFunctionCallExpression),
+    CallFunction {
+        name: ReferenceExpression,
+        args: Vec<Expression>,
+    },
 }
 
 impl Display for Expression {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Expression::Reference(reference) => write!(f, "{}", reference),
-            Expression::GetMember(member) => match *member.name.clone() {
+            Expression::GetMember { object, name } => match *name.clone() {
                 ReferenceExpression::Identifier(identifier) => {
-                    write!(f, "{}.{}", member.object, identifier)
+                    write!(f, "{}.{}", object, identifier)
                 }
-                ReferenceExpression::Register(reg) => write!(f, "{}[${}]", member.object, reg),
-                ReferenceExpression::Expression(expr) => write!(f, "{}[{}]", member.object, expr),
+                ReferenceExpression::Register(reg) => write!(f, "{}[${}]", object, reg),
+                ReferenceExpression::Expression(expr) => write!(f, "{}[{}]", object, expr),
             },
             Expression::Literal(literal) => write!(f, "{}", literal),
-            Expression::Binary(binary) => write!(
-                f,
-                "({} {} {})",
-                binary.left, binary.expression_type, binary.right
-            ),
+            Expression::Binary {
+                left,
+                right,
+                expression_type,
+            } => write!(f, "({} {} {})", left, expression_type, right),
             Expression::Function(function) => write!(f, "{}", function),
-            Expression::Unary(unary) => write!(f, "{}", unary),
-            Expression::CallFunction(call) => {
-                let args: Vec<String> = call.args.iter().map(|it| it.to_string()).collect();
-                write!(f, "{}({})", call.name, args.join(", "))
+            Expression::Unary {
+                target,
+                expression_type,
+            } => match expression_type {
+                UnaryExpressionType::Increment => write!(f, "({} + 1)", target),
+                UnaryExpressionType::Decrement => write!(f, "({} - 1)", target),
+                UnaryExpressionType::Not => write!(f, "!{}", target),
+            },
+            Expression::CallFunction { name, args } => {
+                let args: Vec<String> = args.iter().map(|it| it.to_string()).collect();
+                write!(f, "{}({})", name, args.join(", "))
             }
         }
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct ASFunctionCallExpression {
-    pub name: ReferenceExpression,
-    pub args: Vec<Expression>,
-}
-
-#[derive(Debug, Clone)]
-pub struct ASGetMemberExpression {
-    pub name: Box<ReferenceExpression>,
-    pub object: Box<ReferenceExpression>,
+pub enum UnaryExpressionType {
+    Increment,
+    Decrement,
+    Not,
 }
 
 #[derive(Debug, Clone)]

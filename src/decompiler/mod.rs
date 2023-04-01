@@ -1,13 +1,8 @@
 mod read;
 mod vm;
-use crate::ast::binary_expr::{BinaryExpression, BinaryExpressionType};
-use crate::ast::expr::{
-    ASFunctionCallExpression, ASGetMemberExpression, Expression, ReferenceExpression,
-};
-use crate::ast::statement::{
-    DefineLocal, FunctionDeclaration, SetMember, SetVariable, Statement, StoreRegister,
-};
-use crate::ast::unary_expr::{UnaryExpression, UnaryExpressionType};
+use crate::ast::binary_expr::BinaryExpressionType;
+use crate::ast::expr::{Expression, ReferenceExpression, UnaryExpressionType};
+use crate::ast::statement::{FunctionDeclaration, Statement};
 use crate::ast::variant::Variant;
 use crate::ast::ASIdentifier;
 use crate::decompiler::vm::VirtualMachine;
@@ -56,10 +51,7 @@ pub fn decompile(data: VmData) -> Result<Vec<Statement>> {
                     }
                 };
                 let args = vm.pop_len(num_args)?;
-                vm.push(Expression::CallFunction(ASFunctionCallExpression {
-                    name,
-                    args,
-                }))
+                vm.push(Expression::CallFunction { name, args })
             }
             Action::Push(push) => {
                 for value in push.values.iter() {
@@ -91,24 +83,24 @@ pub fn decompile(data: VmData) -> Result<Vec<Statement>> {
             Action::StoreRegister(store) => {
                 let value = vm.pop()?;
                 vm.store(store.register, value.clone())?;
-                vm.append_statement(Statement::StoreRegister(StoreRegister {
+                vm.append_statement(Statement::StoreRegister {
                     id: store.register,
                     value: value.clone(),
-                }))
+                })
             }
             Action::Pop => {
                 let expr = vm.pop()?;
-                if let Expression::CallFunction(_) = expr {
+                if let Expression::CallFunction { name, args } = &expr {
                     vm.append_statement(Statement::ExpressionStatement(expr))
                 }
             }
             Action::GetMember => {
                 let name = ReferenceExpression::from_expression(vm.pop()?);
                 let object = ReferenceExpression::from_expression(vm.pop()?);
-                vm.push(Expression::GetMember(ASGetMemberExpression {
+                vm.push(Expression::GetMember {
                     name: Box::new(name),
                     object: Box::new(object),
-                }))
+                })
             }
             Action::InitArray => {
                 let elements = if let Expression::Literal(Variant::Int(i)) = vm.pop()? {
@@ -138,30 +130,30 @@ pub fn decompile(data: VmData) -> Result<Vec<Statement>> {
             Action::SetVariable => {
                 let value = vm.pop()?;
                 let path = ReferenceExpression::from_expression(vm.pop()?);
-                vm.append_statement(Statement::SetVariable(SetVariable {
+                vm.append_statement(Statement::SetVariable {
                     left: path,
                     right: value,
-                }))
+                })
             }
             Action::DefineLocal => {
                 let value = vm.pop()?;
                 let name = ReferenceExpression::from_expression(vm.pop()?);
 
-                vm.append_statement(Statement::DefineLocal(DefineLocal {
+                vm.append_statement(Statement::DefineLocal {
                     left: name,
                     right: value,
-                }))
+                })
             }
             Action::SetMember => {
                 let value = vm.pop()?;
                 let name = ReferenceExpression::from_expression(vm.pop()?);
                 let object = ReferenceExpression::from_expression(vm.pop()?);
 
-                vm.append_statement(Statement::SetMember(SetMember {
+                vm.append_statement(Statement::SetMember {
                     object,
                     name,
                     value,
-                }))
+                })
             }
             Action::Return => {
                 let value = vm.pop()?;
@@ -218,10 +210,10 @@ fn decompile_unary_expr(
     expression_type: UnaryExpressionType,
 ) -> Result<()> {
     let target = vm.pop()?;
-    vm.push(Expression::Unary(UnaryExpression {
+    vm.push(Expression::Unary {
         target: Box::new(target),
         expression_type,
-    }));
+    });
     Ok(())
 }
 
@@ -231,11 +223,11 @@ fn decompile_binary_expr(
 ) -> Result<()> {
     let right = vm.pop()?;
     let left = vm.pop()?;
-    vm.push(Expression::Binary(BinaryExpression {
+    vm.push(Expression::Binary {
         left: Box::new(left),
         right: Box::new(right),
         expression_type,
-    }));
+    });
     Ok(())
 }
 

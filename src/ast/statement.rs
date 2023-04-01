@@ -6,10 +6,23 @@ use swf::avm1::types::FunctionFlags;
 #[derive(Debug, Clone)]
 pub enum Statement {
     FunctionDeclaration(FunctionDeclaration),
-    DefineLocal(DefineLocal),
-    SetVariable(SetVariable),
-    SetMember(SetMember),
-    StoreRegister(StoreRegister),
+    DefineLocal {
+        left: ReferenceExpression,
+        right: Expression,
+    },
+    SetVariable {
+        left: ReferenceExpression,
+        right: Expression,
+    },
+    SetMember {
+        object: ReferenceExpression,
+        name: ReferenceExpression,
+        value: Expression,
+    },
+    StoreRegister {
+        id: u8,
+        value: Expression,
+    },
     Return(Option<Expression>),
     UnknownStatement(String),
     ExpressionStatement(Expression),
@@ -19,20 +32,24 @@ impl Display for Statement {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Statement::FunctionDeclaration(x) => writeln!(f, "{}", x),
-            Statement::DefineLocal(x) => writeln!(f, "var {} = {}", x.left, x.right),
-            Statement::SetVariable(x) => writeln!(f, "{} = {}", x.left, x.right),
-            Statement::SetMember(x) => match &x.name {
+            Statement::DefineLocal { left, right } => writeln!(f, "var {} = {}", left, right),
+            Statement::SetVariable { left, right } => writeln!(f, "{} = {}", left, right),
+            Statement::SetMember {
+                object,
+                name,
+                value,
+            } => match &name {
                 ReferenceExpression::Identifier(identifier) => {
-                    writeln!(f, "{}.{} = {}", x.object, identifier, x.value)
+                    writeln!(f, "{}.{} = {}", object, identifier, value)
                 }
                 ReferenceExpression::Register(reg) => {
-                    writeln!(f, "{}[${}] = {}", x.object, reg, x.value)
+                    writeln!(f, "{}[${}] = {}", object, reg, value)
                 }
                 ReferenceExpression::Expression(expr) => {
-                    writeln!(f, "{}[{}] = {}", x.object, expr, x.value)
+                    writeln!(f, "{}[{}] = {}", object, expr, value)
                 }
             },
-            Statement::StoreRegister(x) => writeln!(f, "${} = {}", x.id, x.value),
+            Statement::StoreRegister { id, value } => writeln!(f, "${} = {}", id, value),
             Statement::UnknownStatement(x) => writeln!(f, "??? {}", x),
             Statement::Return(value) => match value {
                 Some(value) => writeln!(f, "return {}", value),
@@ -69,29 +86,4 @@ impl Display for FunctionDeclaration {
 
         write!(f, "}}")
     }
-}
-
-#[derive(Debug, Clone)]
-pub struct SetVariable {
-    pub left: ReferenceExpression,
-    pub right: Expression,
-}
-
-#[derive(Debug, Clone)]
-pub struct DefineLocal {
-    pub left: ReferenceExpression,
-    pub right: Expression,
-}
-
-#[derive(Debug, Clone)]
-pub struct SetMember {
-    pub value: Expression,
-    pub name: ReferenceExpression,
-    pub object: ReferenceExpression,
-}
-
-#[derive(Debug, Clone)]
-pub struct StoreRegister {
-    pub id: u8,
-    pub value: Expression,
 }
