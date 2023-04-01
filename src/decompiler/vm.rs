@@ -86,10 +86,17 @@ impl<'a> VirtualMachine<'a> {
         self.data.constant_pool[id].clone()
     }
 
-    pub fn finalize(self) -> Vec<Statement> {
+    pub fn finalize(mut self) -> Vec<Statement> {
         if !self.stack.is_empty() {
             eprintln!("{} remaining items on the stack", self.stack.len())
         }
+        let mut dangling_stack = self
+            .stack
+            .into_iter()
+            .rev()
+            .map(|(pos, expr)| (pos, Statement::DanglingStack(expr)))
+            .collect();
+        self.block.append(&mut dangling_stack);
         self.block
             .into_iter()
             .map(|(_, statement)| statement)

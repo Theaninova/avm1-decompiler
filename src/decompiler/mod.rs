@@ -53,6 +53,19 @@ pub fn decompile(data: VmData) -> Result<Vec<Statement>> {
                 let args = vm.pop_len(num_args)?;
                 vm.push(Expression::CallFunction { name, args })
             }
+            Action::CallMethod => {
+                let name = ReferenceExpression::from_expression(vm.pop()?);
+                let object = ReferenceExpression::from_expression(vm.pop()?);
+                let num_args = match vm.pop()? {
+                    Expression::Literal(Variant::Int(i)) => i as usize,
+                    _ => {
+                        eprintln!("Tried calling a function with non-constant arg count");
+                        0
+                    }
+                };
+                let args = vm.pop_len(num_args)?;
+                vm.push(Expression::CallMethod { name, object, args })
+            }
             Action::Push(push) => {
                 for value in push.values.iter() {
                     let expression = match value {
@@ -90,17 +103,43 @@ pub fn decompile(data: VmData) -> Result<Vec<Statement>> {
             }
             Action::Pop => {
                 let expr = vm.pop()?;
-                if let Expression::CallFunction { name, args } = &expr {
-                    vm.append_statement(Statement::ExpressionStatement(expr))
+                match &expr {
+                    Expression::CallFunction { name: _, args: _ } => {
+                        vm.append_statement(Statement::ExpressionStatement(expr))
+                    }
+                    Expression::CallMethod {
+                        name: _,
+                        args: _,
+                        object: _,
+                    } => vm.append_statement(Statement::ExpressionStatement(expr)),
+                    _ => vm.append_statement(Statement::Pop(expr)),
                 }
+            }
+            Action::ToInteger => {
+                let value = vm.pop()?;
+                vm.push(Expression::Unary {
+                    target: Box::new(value),
+                    expression_type: UnaryExpressionType::ToInteger,
+                })
+            }
+            Action::ToString => {
+                let value = vm.pop()?;
+                vm.push(Expression::Unary {
+                    target: Box::new(value),
+                    expression_type: UnaryExpressionType::ToString,
+                })
+            }
+            Action::ToNumber => {
+                let value = vm.pop()?;
+                vm.push(Expression::Unary {
+                    target: Box::new(value),
+                    expression_type: UnaryExpressionType::ToNumber,
+                })
             }
             Action::GetMember => {
                 let name = ReferenceExpression::from_expression(vm.pop()?);
                 let object = ReferenceExpression::from_expression(vm.pop()?);
-                vm.push(Expression::GetMember {
-                    name: Box::new(name),
-                    object: Box::new(object),
-                })
+                vm.push(Expression::GetMember { name, object })
             }
             Action::InitArray => {
                 let elements = if let Expression::Literal(Variant::Int(i)) = vm.pop()? {
@@ -124,7 +163,10 @@ pub fn decompile(data: VmData) -> Result<Vec<Statement>> {
                 vm.push(Expression::Literal(Variant::Object(props)));
             }
             Action::GetVariable => {
-                let path = ReferenceExpression::from_expression(vm.pop()?);
+                let path = match vm.pop()? {
+                    Expression::Literal(Variant::String(str)) => ReferenceExpression::Variable(str),
+                    it => ReferenceExpression::from_expression(it),
+                };
                 vm.push(Expression::Reference(path))
             }
             Action::SetVariable => {

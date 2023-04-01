@@ -26,6 +26,8 @@ pub enum Statement {
     Return(Option<Expression>),
     UnknownStatement(String),
     ExpressionStatement(Expression),
+    DanglingStack(Expression),
+    Pop(Expression),
 }
 
 impl Display for Statement {
@@ -42,6 +44,9 @@ impl Display for Statement {
                 ReferenceExpression::Identifier(identifier) => {
                     writeln!(f, "{}.{} = {}", object, identifier, value)
                 }
+                ReferenceExpression::Variable(var) => {
+                    writeln!(f, "{}[{}] = {}", object, var, value)
+                }
                 ReferenceExpression::Register(reg) => {
                     writeln!(f, "{}[${}] = {}", object, reg, value)
                 }
@@ -56,6 +61,12 @@ impl Display for Statement {
                 None => writeln!(f, "return"),
             },
             Statement::ExpressionStatement(expression) => writeln!(f, "{}", expression),
+            Statement::DanglingStack(stack) => {
+                writeln!(f, "//!! {}", stack)
+            }
+            Statement::Pop(pop) => {
+                writeln!(f, "// pop: {}", pop)
+            }
         }
     }
 }
