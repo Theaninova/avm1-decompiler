@@ -66,20 +66,30 @@ fn main() {
             let mut reader = Reader::new(&data, 1);
 
             let num_actions = reader.read_u32().unwrap();
-            let action_size = reader.read_u16().unwrap();
-            reader.read_u16().unwrap();
+            println!("{} actions", num_actions);
 
-            let action = reader.read_slice(action_size as usize - 2).unwrap();
-            let result = decompile(VmData {
-                bytecode: action,
-                constant_pool: &pool,
-                strict,
-                registers: Vec::new(),
-            })
-            .expect("Decompile failed");
+            for i in 0..num_actions {
+                let action_size = reader.read_u16().unwrap();
+                reader.read_u16().unwrap();
+                let action = reader.read_slice(action_size as usize).unwrap();
+                let result = decompile(VmData {
+                    bytecode: action,
+                    constant_pool: &pool,
+                    strict,
+                    registers: Vec::new(),
+                })
+                .expect("Decompile failed");
 
-            let emitted_code: Vec<String> = result.iter().map(|it| it.to_string()).collect();
-            fs::write(out_path, emitted_code.join("")).unwrap();
+                let emitted_code: Vec<String> = result.iter().map(|it| it.to_string()).collect();
+                fs::write(
+                    &out_path.with_extension(format!("{}.as", i)),
+                    emitted_code.join(""),
+                )
+                .unwrap();
+                if (action_size + 4) % 4 != 0 {
+                    reader.read_slice(4 - (action_size as usize + 4) % 4);
+                }
+            }
         }
     }
 }
