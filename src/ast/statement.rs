@@ -22,8 +22,8 @@ pub enum Statement {
     },
     If {
         condition: Expression,
-        true_branch: Block,
-        false_branch: Block,
+        true_branch: Option<Block>,
+        false_branch: Option<Block>,
     },
     While {
         condition: Expression,
@@ -74,11 +74,20 @@ impl Display for Statement {
                 condition,
                 true_branch,
                 false_branch,
-            } => write!(
-                f,
-                "if ({}) {} else {}",
-                condition, true_branch, false_branch
-            ),
+            } => match (true_branch, false_branch) {
+                (Some(true_branch), Some(false_branch)) => write!(
+                    f,
+                    "if ({}) {} else {}",
+                    condition, true_branch, false_branch
+                ),
+                (Some(true_branch), None) => write!(f, "if ({}) {}", condition, true_branch),
+                (None, Some(false_branch)) => write!(
+                    f,
+                    "if ({}) {{ /* unresolved */ }}\n{}",
+                    condition, false_branch
+                ),
+                (None, None) => write!(f, "if ({}) {{ /* unresolved */ }}", condition),
+            },
             Statement::SetMember {
                 object,
                 name,

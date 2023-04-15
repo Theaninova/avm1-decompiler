@@ -1,6 +1,8 @@
+use crate::ast::block::Block;
 use crate::ast::expr::Expression;
 use crate::ast::statement::Statement;
 use crate::ast::variant::Variant;
+use crate::decompiler::components::jump_logger::{log_jump, log_return};
 use crate::decompiler::read::read;
 use crate::decompiler::vm::loops::resolve_loop;
 use crate::decompiler::VmData;
@@ -100,42 +102,30 @@ impl<'a> VirtualMachine<'a> {
         let position = self.offset;
         let target = (actual_position as i64 + offset as i64) as usize;
 
+        log_jump(offset, position, actual_position, target, &condition);
+
         if offset < 0 {
             resolve_loop(self, target);
-        }
-
-        let jump = if offset < 0 {
-            format!(
-                ">> {:04} <- [{:04}-{:04}]",
-                target, position, actual_position
-            )
-        } else {
-            format!(
-                ">> [{:04}-{:04}] -> {:04}",
-                position, actual_position, target
-            )
-        };
-
-        if let Some(condition) = condition {
-            println!("{} if not {}", jump, condition);
-        } else {
-            println!("{}", jump)
+        } else if let Some(condition) = condition {
+            self.append_statement(Statement::If {
+                condition,
+                true_branch: None,
+                false_branch: None,
+            })
         }
     }
 
     pub fn jump_return(&mut self, value: Option<Expression>) {
         let actual_position = self.reader.pos(self.data.bytecode);
         let position = self.offset;
-        if let Some(value) = value {
-            println!(
-                ">> [{:04}-{:04}] return {}",
-                position, actual_position, value,
-            );
-            self.append_statement(Statement::Return(Some(value)));
+
+        log_return(position, actual_position, &value);
+
+        self.append_statement(if let Some(value) = value {
+            Statement::Return(Some(value))
         } else {
-            println!(">> [{:04}-{:04}] return", position, actual_position,);
-            self.append_statement(Statement::Return(None))
-        }
+            Statement::Return(None)
+        })
     }
 
     pub fn get_constant(&mut self, id: usize) -> String {
