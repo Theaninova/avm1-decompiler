@@ -7,13 +7,13 @@ use swf::avm1::types::FunctionFlags;
 
 #[derive(Debug, Clone)]
 pub struct SuperpositionExpression {
-    condition: Option<Expression>,
-    value: Box<Expression>,
+    pub id: Option<usize>,
+    pub value: Box<Expression>,
 }
 
 impl Display for SuperpositionExpression {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        if let Some(cond) = &self.condition {
+        if let Some(cond) = &self.id {
             write!(f, "{}|{}⟩", cond, self.value)
         } else {
             write!(f, "|{}⟩", self.value)
@@ -140,8 +140,8 @@ impl Display for Expression {
                 target,
                 expression_type,
             } => match expression_type {
-                UnaryExpressionType::Increment => write!(f, "({} + 1)", target),
-                UnaryExpressionType::Decrement => write!(f, "({} - 1)", target),
+                UnaryExpressionType::Increment => write!(f, "{}++", target),
+                UnaryExpressionType::Decrement => write!(f, "{}--", target),
                 UnaryExpressionType::Not => write!(f, "!{}", target),
                 UnaryExpressionType::ToInteger => write!(f, "int({})", target),
                 UnaryExpressionType::ToString => write!(f, "String({})", target),

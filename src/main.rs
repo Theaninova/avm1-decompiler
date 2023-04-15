@@ -4,7 +4,10 @@ pub mod decompiler;
 use crate::ast::action::Action;
 use crate::decompiler::{decompile, VmData};
 use clap::{arg, Parser, Subcommand};
+use dprint_plugin_typescript::configuration::{Configuration, ConfigurationBuilder};
+use dprint_plugin_typescript::format_text;
 use std::fs;
+use std::path::Path;
 use swf::avm1::read::Reader;
 use swf::extensions::ReadSwfExt;
 
@@ -47,6 +50,8 @@ fn main() {
             out,
             pool,
         } => {
+            let format_config = ConfigurationBuilder::new().build();
+
             let pool: Vec<String> = serde_json::from_str(
                 fs::read_to_string(if let Some(pool_path) = pool {
                     pool_path
@@ -87,9 +92,18 @@ fn main() {
                 };
 
                 let emitted_code = decompiled_action.to_string();
+                let formatted =
+                    match format_text(Path::new("action.js"), &emitted_code, &format_config) {
+                        Ok(code) => code,
+                        Err(error) => {
+                            eprintln!("Formatting failed: {}", error);
+                            None
+                        }
+                    }
+                    .unwrap_or(emitted_code);
                 fs::write(
                     &out_path.with_extension(format!("{}.as", decompiled_action.id)),
-                    emitted_code,
+                    formatted,
                 )
                 .unwrap();
                 if (action_size + 4) % 4 != 0 {

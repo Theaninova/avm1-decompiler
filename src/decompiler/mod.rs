@@ -114,6 +114,7 @@ fn internal_decompile(mut vm: VirtualMachine) -> Result<Vec<Statement>> {
                 // negate the expression
                 decompile_unary_expr(&mut vm, UnaryExpressionType::Not)?;
                 let condition = vm.pop()?;
+                vm.jump(target.offset, Some(condition.clone()));
                 // let true_branch = internal_decompile(vm.resolve_jump(target.offset))?;
                 // let false_branch = internal_decompile(vm.resolve_jump(target.offset))?;
                 vm.append_statement(Statement::If {
@@ -128,7 +129,6 @@ fn internal_decompile(mut vm: VirtualMachine) -> Result<Vec<Statement>> {
             }
             Action::Jump(target) => {
                 vm.jump(target.offset, None);
-                // TODO
             }
             Action::Pop => {
                 let expr = vm.pop()?;

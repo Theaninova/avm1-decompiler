@@ -1,6 +1,10 @@
 # AVM1 Decompiler
 
-An avm1 bytecode decompiler using [ruffle](https://github.com/ruffle-rs/ruffle)
+An avm1 bytecode decompiler using [ruffle](https://github.com/ruffle-rs/ruffle) (bytecode parsing)
+and [dprint/typescript](https://dprint.dev/plugins/typescript/) (output formatting).
+
+It can do most things as of right now, with the big notable exception
+being any sort of control flow recovery.
 
 The intention is to provide readable results.
 
@@ -18,35 +22,23 @@ avm1-decompiler decompile [--strict] [--out <PATH>] [--pool <PATH>] <PATH>
 
 ## Current status
 
-Example result
+Example of a good result (thank you dprint for the nice formatting!)
 
 ```ecma script level 4
-function SetMcPath() {
-  mcMeterHari = [[$1.mc_meter_set.mc_meter_set_fps.mc_speed_hari, $1.mc_meter_set.mc_meter_set_fps.mc_tacho_hari, $1.mc_meter_set.mc_meter_set_fps.mc_boost_hari], [$1.mc_meter_set.mc_meter_set_tps.mc_speed_hari, $1.mc_meter_set.mc_meter_set_tps.mc_tacho_hari, $1.mc_meter_set.mc_meter_set_tps.mc_boost_hari]]
+function SetupConfData() {
+  mcSettingTarget = {
+    "country_version00": [
+      [$1.scn00.mc_item01.item_userinfo_pack00.text_shogo_set00, 1],
+      [$1.scn00.mc_item02.item_userinfo_pack00.text_shogo_set00, 1],
+      [$1.scn00.mc_item03.item_userinfo_pack00.text_shogo_set00, 1],
+      [$1.scn00.mc_item04.item_userinfo_pack00.text_shogo_set00, 1],
+      [$1.scn00.mc_item05.item_userinfo_pack00.text_shogo_set00, 1],
+    ],
+    "mode_select00": [[$1.scn00.mc_item00.mode_select00, 1], [$1.scn00.mc_item00.usecard_select00, 1]],
+  };
+  WinInOutConf = [[$1.scn00, [2, 3], [3, 2]], [$1.bg, [0, 0], [0, 0]]];
+  mcVarSetTarget = { "main": $1, "main2": $1.scn00 };
 }
-function Init() {
-  SetMcPath()
-  CheckOfVarsDef()
-  return undefined
-}
-function MeterMain() {
-  $1 = 0
-  $2 = 0
-  $3 = [CarSPD, CarRPM, CarBOOST]
-  $4 = 0
-  $5 = [false, false, false]
-  $1 = 0
-  ??? If(If { offset: 1159 })
-  ??? If(If { offset: 5 })
-  ??? Jump(Jump { offset: 1102 })
-  $2 = 0
-  ??? If(If { offset: 878 })
-  ??? If(If { offset: 29 })
-  ??? If(If { offset: 12 })
-  ??? If(If { offset: 207 })
-  $4 = ((AngleChangePointMAP[$1][$2] - AngleChangePointMAP[$1][($2 - 1)]) / (RealValChangePointMAP[$1][$2] - RealValChangePointMAP[$1][($2 - 1)]))
-  mcMeterHari[GetFsView[0]][$1]._rotation = (AngleChangePointMAP[$1][($2 - 1)] + (($3[$1] - RealValChangePointMAP[$1][($2 - 1)]) * $4))
-  $5[$1] = true
 ```
 
 ## Branch recovery
@@ -67,3 +59,29 @@ For example:
 7  push "b"  // push("b")   -> stack: ["a"]@3, ["b"]
 8  trace     // trace(x > 4 ? "a" : "b") # Open stack @3
 ```
+
+There are four cases to consider
+
+1. Simple if/else
+```
+                                 ┌──────────────────────┐
+           ┌─────────────────────┼────┐                 │
+           │                     │    ▼                 ▼
+push 1  jumpif push "test" call jump push "test2" call push "test3" call
+ ┌──────────┐  ┌─────────────┐         ┌────────────┐        ┌────────┐
+ └──────────┘  └─────────────┘         └────────────┘        └────────┘
+
+```
+2. Ternary
+3. Loops
+4. Short-circuit logical and/or (don't think amv1 has that?)
+
+It's probably a good time to mention now that there are
+things that are _theoretically_ possible to do using push/pop/jump,
+but can't happen if the code was compiled with a relatively
+simplistic compiler.
+
+One thing that is especially interesting here is that blocks
+formed by jumps _always_ have an isolated stack, with the
+Exception being remaining stack values in case of a ternary.
+

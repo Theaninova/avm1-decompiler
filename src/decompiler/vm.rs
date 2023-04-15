@@ -1,10 +1,13 @@
-use crate::ast::expr::Expression;
+use crate::ast::block::Block;
+use crate::ast::expr::{Expression, SuperpositionExpression};
 use crate::ast::statement::Statement;
 use crate::ast::variant::Variant;
 use crate::ast::variant::Variant::Uninitialized;
 use crate::decompiler::read::read;
 use crate::decompiler::VmData;
+use itertools::Itertools;
 use std::borrow::Cow;
+use std::ptr::write;
 use swf::avm1::read::Reader;
 use swf::avm1::types::Action;
 use swf::avm2::types::Op;
@@ -15,100 +18,37 @@ impl<'a> From<VmData<'a>> for VirtualMachine<'a> {
     fn from(value: VmData<'a>) -> Self {
         VirtualMachine {
             reader: Reader::new(value.bytecode, 1),
-            stack: Vec::new(),
-            block: Vec::new(),
-            states: vec![VmState {
-                offset: 0,
-                next_change: None,
-                active: true,
-                cursor: 0,
-                condition: None,
-            }],
-            jump_table: Vec::new(),
+            stack: vec![],
+            block: vec![],
+            control_flow_graph: vec![ControlFlowNode::Entry { next: 0 }],
             data: value,
             offset: 0,
         }
     }
 }
 
-#[derive(Debug, Clone)]
-enum VmJump {
-    Conditional {
-        position: usize,
-        actual_position: usize,
-        target: usize,
-        expr: Expression,
+pub enum ControlFlowNode {
+    Branch {
+        parent: usize,
+        condition: Expression,
+        if_true: usize,
+        if_false: usize,
     },
-    Jump {
-        position: usize,
-        target: usize,
+    Join {
+        branches: Vec<usize>,
     },
     Return {
-        position: usize,
-        actual_position: usize,
-        expr: Option<Expression>,
+        parent: usize,
     },
-}
-
-pub struct Superposition {
-    id: usize,
-    next_change: Option<usize>,
-    active: bool,
-    cursor: usize,
-    condition_id: Option<usize>,
-}
-
-pub struct LinearSuperpositionStack {
-    superpositions: Vec<Superposition>,
-    stack: Vec<Vec<(usize, Expression)>>,
-}
-
-impl LinearSuperpositionStack {
-    /*pub fn pop(&mut self, position: usize) -> Option<Expression> {
-        let active = self.tick(position);
-        let mut values = Vec::new();
-        for superposition in active {
-            values.push(if let Some(values) = self.stack.get(superposition.cursor) {
-                values.iter().find(|id| (**id).0 == superposition.id)
-            } else {
-                return None;
-            });
-        }
-        if values.len() == 1 {
-            return values[0];
-        }
-        values
-    }
-
-    fn tick(&mut self, position: usize) -> Vec<&Superposition> {
-        let mut active = Vec::new();
-        for mut superposition in self.superpositions {
-            if let Some(next_change) = superposition.next_change {
-                if next_change == position {
-                    superposition.active = !superposition.active;
-                }
-            }
-            if superposition.active {
-                active.push(&superposition);
-            }
-        }
-        active
-    }*/
-}
-
-pub struct VmState {
-    offset: usize,
-    next_change: Option<usize>,
-    active: bool,
-    cursor: usize, // position in the stack from the bottom
-    condition: Option<(usize, Expression)>,
+    Entry {
+        next: usize,
+    },
 }
 
 pub struct VirtualMachine<'a> {
-    states: Vec<VmState>,
-    jump_table: Vec<VmJump>,
     stack: Vec<(usize, Expression)>,
     block: Vec<(usize, Statement)>,
+    control_flow_graph: Vec<ControlFlowNode>,
     reader: Reader<'a>,
     offset: usize,
     pub data: VmData<'a>,
@@ -177,24 +117,96 @@ impl<'a> VirtualMachine<'a> {
         let actual_position = self.reader.pos(self.data.bytecode);
         let position = self.offset;
         let target = (actual_position as i64 + offset as i64) as usize;
-        self.jump_table.push(if let Some(expr) = condition {
-            VmJump::Conditional {
-                expr,
-                position,
-                actual_position,
-                target,
+
+        if offset < 0 {
+            let statement = self.block.iter().find_position(|it| it.0 == target);
+
+            let condition = if let Some((
+                index,
+                (
+                    pos,
+                    Statement::If {
+                        condition,
+                        true_branch,
+                        false_branch,
+                    },
+                ),
+            )) = statement
+            {
+                Some((index, *pos, condition.clone()))
+            } else {
+                None
+            };
+
+            if let Some((index, pos, condition)) = condition {
+                let mut loop_block: Vec<Statement> =
+                    self.block.drain((index + 1)..).map(|it| it.1).collect();
+                self.block.pop().unwrap();
+
+                match (self.block.pop(), loop_block.pop()) {
+                    (
+                        Some((pos, Statement::ExpressionStatement(declare))),
+                        Some(Statement::ExpressionStatement(increment)),
+                    ) => {
+                        self.block.push((
+                            pos,
+                            Statement::For {
+                                increment: increment.clone(),
+                                declare: declare.clone(),
+                                condition,
+                                block: Block { body: loop_block },
+                            },
+                        ));
+                    }
+                    (declare, increment) => {
+                        if let Some(declare) = declare {
+                            self.block.push(declare)
+                        };
+                        if let Some(increment) = increment {
+                            loop_block.push(increment)
+                        };
+                        self.block.push((
+                            pos,
+                            Statement::While {
+                                condition,
+                                block: Block { body: loop_block },
+                            },
+                        ));
+                    }
+                }
+            } else {
+                println!("❌ Loop didn't resolve")
             }
+        }
+
+        let jump = if offset < 0 {
+            format!(
+                ">> {:04} <- [{:04}-{:04}]",
+                target, position, actual_position
+            )
         } else {
-            VmJump::Jump { position, target }
-        })
+            format!(
+                ">> [{:04}-{:04}] -> {:04}",
+                position, actual_position, target
+            )
+        };
+
+        if let Some(condition) = condition {
+            println!("{} if not {}", jump, condition);
+        } else {
+            println!("{}", jump)
+        }
     }
 
     pub fn jump_return(&mut self, value: Option<Expression>) {
-        self.jump_table.push(VmJump::Return {
-            expr: value,
-            position: self.offset,
-            actual_position: self.reader.pos(self.data.bytecode),
-        })
+        let actual_position = self.reader.pos(self.data.bytecode);
+        let position = self.offset;
+        println!(
+            ">> [{:04}-{:04}] return {}",
+            position,
+            actual_position,
+            value.unwrap_or(Expression::Literal(Variant::Uninitialized))
+        );
     }
 
     pub fn get_constant(&mut self, id: usize) -> String {
@@ -206,9 +218,10 @@ impl<'a> VirtualMachine<'a> {
             eprintln!("{} remaining items on the stack", self.stack.len())
         }
         println!("-----");
-        for jump in self.jump_table {
-            println!(">> {:?}", jump);
-        }
+        // TODO
+        // for jump in self.jump_table {
+        //     println!(">> {:?}", jump);
+        // }
         println!("-----");
         let mut dangling_stack = self
             .stack

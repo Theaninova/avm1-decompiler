@@ -25,7 +25,7 @@ impl Display for Variant {
             Variant::Int(value) => write!(f, "{}", value),
             Variant::Float(value) => write!(f, "{:?}", value),
             Variant::Double(value) => write!(f, "{:?}", value),
-            Variant::String(value) => write!(f, "\"{}\"", value),
+            Variant::String(value) => write!(f, "\"{}\"", value.replace('"', "\\\"")),
             Variant::Array(value) => {
                 let members_fmt: Vec<String> = value.iter().map(|x| x.to_string()).collect();
                 write!(f, "[{}]", members_fmt.join(", "))

@@ -2,7 +2,6 @@ use crate::ast::block::Block;
 use crate::ast::expr::{Expression, ReferenceExpression};
 use std::fmt::{Display, Formatter};
 
-
 #[derive(Debug, Clone)]
 pub enum Statement {
     DefineLocal {
@@ -17,11 +16,20 @@ pub enum Statement {
         name: ReferenceExpression,
         value: Expression,
     },
-    
     If {
         condition: Expression,
         true_branch: Block,
         false_branch: Block,
+    },
+    While {
+        condition: Expression,
+        block: Block,
+    },
+    For {
+        declare: Expression,
+        condition: Expression,
+        increment: Expression,
+        block: Block,
     },
     Trace(Expression),
     Return(Option<Expression>),
@@ -43,8 +51,21 @@ impl Display for Statement {
             Statement::Trace(expr) => write!(f, "trace({})", expr),
             Statement::Play => write!(f, "play()"),
             Statement::Stop => write!(f, "stop()"),
-            Statement::GotoLabel(label) => write!(f, "gotoAndPlay({})", label),
+            Statement::GotoLabel(label) => {
+                write!(f, "gotoAndPlay(\"{}\")", label.replace('"', "\\\""))
+            }
             Statement::GotoFrame(frame) => write!(f, "gotoAndPlay({})", frame),
+            Statement::While { condition, block } => write!(f, "while ({}) {}", condition, block),
+            Statement::For {
+                declare,
+                condition,
+                increment,
+                block,
+            } => write!(
+                f,
+                "for ({}; {}; {}) {}",
+                declare, condition, increment, block
+            ),
             Statement::If {
                 condition,
                 true_branch,
@@ -72,7 +93,7 @@ impl Display for Statement {
                     write!(f, "{}[{}] = {}", object, expr, value)
                 }
             },
-            Statement::UnknownStatement(x) => write!(f, "??? {}", x),
+            Statement::UnknownStatement(x) => write!(f, "// ??? {}", x),
             Statement::Return(value) => match value {
                 Some(value) => write!(f, "return {}", value),
                 None => write!(f, "return"),
