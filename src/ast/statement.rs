@@ -16,6 +16,10 @@ pub enum Statement {
         name: ReferenceExpression,
         value: Expression,
     },
+    SetVariable {
+        left: ReferenceExpression,
+        right: Box<Expression>,
+    },
     If {
         condition: Expression,
         true_branch: Block,
@@ -26,9 +30,9 @@ pub enum Statement {
         block: Block,
     },
     For {
-        declare: Expression,
+        declare: Box<Statement>,
         condition: Expression,
-        increment: Expression,
+        increment: Box<Statement>,
         block: Block,
     },
     Trace(Expression),
@@ -93,6 +97,7 @@ impl Display for Statement {
                     write!(f, "{}[{}] = {}", object, expr, value)
                 }
             },
+            Statement::SetVariable { left, right } => write!(f, "{} = {}", left, right),
             Statement::UnknownStatement(x) => write!(f, "// ??? {}", x),
             Statement::Return(value) => match value {
                 Some(value) => write!(f, "return {}", value),
@@ -100,7 +105,7 @@ impl Display for Statement {
             },
             Statement::ExpressionStatement(expression) => write!(f, "{}", expression),
             Statement::DanglingStack(stack) => {
-                write!(f, "{}", stack)
+                write!(f, "{} // dangling stack", stack)
             }
             Statement::Pop(pop) => {
                 write!(f, "// pop: {}", pop)

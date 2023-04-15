@@ -1,5 +1,5 @@
 use crate::ast::block::Block;
-use crate::ast::expr::{Expression, SuperpositionExpression};
+use crate::ast::expr::Expression;
 use crate::ast::statement::Statement;
 use crate::ast::variant::Variant;
 use crate::ast::variant::Variant::Uninitialized;
@@ -7,10 +7,8 @@ use crate::decompiler::read::read;
 use crate::decompiler::VmData;
 use itertools::Itertools;
 use std::borrow::Cow;
-use std::ptr::write;
 use swf::avm1::read::Reader;
 use swf::avm1::types::Action;
-use swf::avm2::types::Op;
 use swf::error::{Error, Result};
 use swf::extensions::ReadSwfExt;
 
@@ -20,35 +18,15 @@ impl<'a> From<VmData<'a>> for VirtualMachine<'a> {
             reader: Reader::new(value.bytecode, 1),
             stack: vec![],
             block: vec![],
-            control_flow_graph: vec![ControlFlowNode::Entry { next: 0 }],
             data: value,
             offset: 0,
         }
     }
 }
 
-pub enum ControlFlowNode {
-    Branch {
-        parent: usize,
-        condition: Expression,
-        if_true: usize,
-        if_false: usize,
-    },
-    Join {
-        branches: Vec<usize>,
-    },
-    Return {
-        parent: usize,
-    },
-    Entry {
-        next: usize,
-    },
-}
-
 pub struct VirtualMachine<'a> {
     stack: Vec<(usize, Expression)>,
     block: Vec<(usize, Statement)>,
-    control_flow_graph: Vec<ControlFlowNode>,
     reader: Reader<'a>,
     offset: usize,
     pub data: VmData<'a>,
@@ -127,8 +105,8 @@ impl<'a> VirtualMachine<'a> {
                     pos,
                     Statement::If {
                         condition,
-                        true_branch,
-                        false_branch,
+                        true_branch: _,
+                        false_branch: _,
                     },
                 ),
             )) = statement
@@ -144,15 +122,20 @@ impl<'a> VirtualMachine<'a> {
                 self.block.pop().unwrap();
 
                 match (self.block.pop(), loop_block.pop()) {
-                    (
-                        Some((pos, Statement::ExpressionStatement(declare))),
-                        Some(Statement::ExpressionStatement(increment)),
-                    ) => {
+                    (Some((pos, declare)), Some(increment))
+                        if matches!(
+                            declare,
+                            Statement::ExpressionStatement(_) | Statement::SetVariable { .. }
+                        ) && matches!(
+                            increment,
+                            Statement::ExpressionStatement(_) | Statement::SetVariable { .. }
+                        ) =>
+                    {
                         self.block.push((
                             pos,
                             Statement::For {
-                                increment: increment.clone(),
-                                declare: declare.clone(),
+                                increment: Box::new(increment),
+                                declare: Box::new(declare),
                                 condition,
                                 block: Block { body: loop_block },
                             },
@@ -217,11 +200,6 @@ impl<'a> VirtualMachine<'a> {
         if !self.stack.is_empty() {
             eprintln!("{} remaining items on the stack", self.stack.len())
         }
-        println!("-----");
-        // TODO
-        // for jump in self.jump_table {
-        //     println!(">> {:?}", jump);
-        // }
         println!("-----");
         let mut dangling_stack = self
             .stack

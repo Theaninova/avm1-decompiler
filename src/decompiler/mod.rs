@@ -160,6 +160,11 @@ fn internal_decompile(mut vm: VirtualMachine) -> Result<Vec<Statement>> {
                 let object = ReferenceExpression::from_expression(vm.pop()?);
                 vm.push(Expression::GetMember { name, object })
             }
+            Action::GetProperty => {
+                let name = ReferenceExpression::from_expression(vm.pop()?);
+                let object = ReferenceExpression::from_expression(vm.pop()?);
+                vm.push(Expression::GetMember { name, object })
+            }
             Action::InitArray => {
                 let elements = if let Expression::Literal(Variant::Int(i)) = vm.pop()? {
                     vm.pop_len(i as usize)?
@@ -195,7 +200,7 @@ fn internal_decompile(mut vm: VirtualMachine) -> Result<Vec<Statement>> {
             Action::SetVariable => {
                 let value = vm.pop()?;
                 let path = ReferenceExpression::from_expression(vm.pop()?);
-                vm.push(Expression::SetVariable {
+                vm.append_statement(Statement::SetVariable {
                     left: path,
                     right: value.into(),
                 })

@@ -35,14 +35,14 @@ pub enum Expression {
         object: ReferenceExpression,
         name: ReferenceExpression,
     },
+    GetProperty {
+        object: ReferenceExpression,
+        name: ReferenceExpression,
+    },
     Ternary {
         condition: Box<Expression>,
         if_true: Box<Expression>,
         if_false: Box<Expression>,
-    },
-    SetVariable {
-        left: ReferenceExpression,
-        right: Box<Expression>,
     },
     Binary {
         left: Box<Expression>,
@@ -86,17 +86,18 @@ impl Display for Expression {
                 )
             }
             Expression::Reference(reference) => write!(f, "{}", reference),
-            Expression::SetVariable { left, right } => write!(f, "{} = {}", left, right),
-            Expression::GetMember { object, name } => match name.clone() {
-                ReferenceExpression::Identifier(identifier) => {
-                    write!(f, "{}.{}", object, identifier)
+            Expression::GetMember { object, name } | Expression::GetProperty { object, name } => {
+                match name.clone() {
+                    ReferenceExpression::Identifier(identifier) => {
+                        write!(f, "{}.{}", object, identifier)
+                    }
+                    ReferenceExpression::Variable(var) => {
+                        write!(f, "{}[{}]", name, var)
+                    }
+                    ReferenceExpression::Register(reg) => write!(f, "{}[${}]", object, reg),
+                    ReferenceExpression::Expression(expr) => write!(f, "{}[{}]", object, expr),
                 }
-                ReferenceExpression::Variable(var) => {
-                    write!(f, "{}[{}]", name, var)
-                }
-                ReferenceExpression::Register(reg) => write!(f, "{}[${}]", object, reg),
-                ReferenceExpression::Expression(expr) => write!(f, "{}[{}]", object, expr),
-            },
+            }
             Expression::CallMethod { object, name, args } => {
                 let args: Vec<String> = args.iter().map(|it| it.to_string()).collect();
                 match name.clone() {
