@@ -1,6 +1,7 @@
 pub mod ast;
 pub mod decompiler;
 
+use crate::ast::action::Action;
 use crate::decompiler::{decompile, VmData};
 use clap::{arg, Parser, Subcommand};
 use std::fs;
@@ -72,7 +73,7 @@ fn main() {
                 let action_size = reader.read_u16().unwrap();
                 reader.read_u16().unwrap();
                 let action = reader.read_slice(action_size as usize).unwrap();
-                let result = decompile(VmData {
+                let action_body = decompile(VmData {
                     bytecode: action,
                     constant_pool: &pool,
                     strict,
@@ -80,10 +81,15 @@ fn main() {
                 })
                 .expect("Decompile failed");
 
-                let emitted_code: Vec<String> = result.iter().map(|it| it.to_string()).collect();
+                let decompiled_action = Action {
+                    id: i,
+                    statements: action_body,
+                };
+
+                let emitted_code = decompiled_action.to_string();
                 fs::write(
-                    &out_path.with_extension(format!("{}.as", i)),
-                    emitted_code.join(""),
+                    &out_path.with_extension(format!("{}.as", decompiled_action.id)),
+                    emitted_code,
                 )
                 .unwrap();
                 if (action_size + 4) % 4 != 0 {

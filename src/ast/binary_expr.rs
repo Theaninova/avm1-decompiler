@@ -9,7 +9,9 @@ pub enum BinaryExpressionType {
     Multiply,
     Modulo,
     Equals,
+    NotEquals,
     StrictEquals,
+    NotStrictEquals,
     LogicalAnd,
     LogicalOr,
     Less,
@@ -41,9 +43,11 @@ impl Display for BinaryExpressionType {
                 BinaryExpressionType::Multiply => "*",
                 BinaryExpressionType::Modulo => "%",
                 BinaryExpressionType::Subtract => "-",
+                BinaryExpressionType::NotEquals => "!=",
                 BinaryExpressionType::Equals => "==",
                 BinaryExpressionType::LogicalAnd => "&&",
                 BinaryExpressionType::LogicalOr => "||",
+                BinaryExpressionType::NotStrictEquals => "!==",
                 BinaryExpressionType::StrictEquals => "===",
             }
         )

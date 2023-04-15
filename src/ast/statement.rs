@@ -1,100 +1,89 @@
+use crate::ast::block::Block;
 use crate::ast::expr::{Expression, ReferenceExpression};
-use crate::ast::ASIdentifier;
 use std::fmt::{Display, Formatter};
-use swf::avm1::types::FunctionFlags;
+
 
 #[derive(Debug, Clone)]
 pub enum Statement {
-    FunctionDeclaration(FunctionDeclaration),
     DefineLocal {
         left: ReferenceExpression,
         right: Expression,
     },
-    SetVariable {
-        left: ReferenceExpression,
-        right: Expression,
+    DeclareLocal {
+        name: ReferenceExpression,
     },
     SetMember {
         object: ReferenceExpression,
         name: ReferenceExpression,
         value: Expression,
     },
-    StoreRegister {
-        id: u8,
-        value: Expression,
+    
+    If {
+        condition: Expression,
+        true_branch: Block,
+        false_branch: Block,
     },
+    Trace(Expression),
     Return(Option<Expression>),
     UnknownStatement(String),
     ExpressionStatement(Expression),
     DanglingStack(Expression),
+    GotoLabel(String),
+    GotoFrame(u16),
+    Play,
+    Stop,
     Pop(Expression),
 }
 
 impl Display for Statement {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Statement::FunctionDeclaration(x) => writeln!(f, "{}", x),
-            Statement::DefineLocal { left, right } => writeln!(f, "var {} = {}", left, right),
-            Statement::SetVariable { left, right } => writeln!(f, "{} = {}", left, right),
+            Statement::DefineLocal { left, right } => write!(f, "var {} = {}", left, right),
+            Statement::DeclareLocal { name } => write!(f, "var {}", name),
+            Statement::Trace(expr) => write!(f, "trace({})", expr),
+            Statement::Play => write!(f, "play()"),
+            Statement::Stop => write!(f, "stop()"),
+            Statement::GotoLabel(label) => write!(f, "gotoAndPlay({})", label),
+            Statement::GotoFrame(frame) => write!(f, "gotoAndPlay({})", frame),
+            Statement::If {
+                condition,
+                true_branch,
+                false_branch,
+            } => write!(
+                f,
+                "if ({}) {} else {}",
+                condition, true_branch, false_branch
+            ),
             Statement::SetMember {
                 object,
                 name,
                 value,
             } => match &name {
                 ReferenceExpression::Identifier(identifier) => {
-                    writeln!(f, "{}.{} = {}", object, identifier, value)
+                    write!(f, "{}.{} = {}", object, identifier, value)
                 }
                 ReferenceExpression::Variable(var) => {
-                    writeln!(f, "{}[{}] = {}", object, var, value)
+                    write!(f, "{}[{}] = {}", object, var, value)
                 }
                 ReferenceExpression::Register(reg) => {
-                    writeln!(f, "{}[${}] = {}", object, reg, value)
+                    write!(f, "{}[${}] = {}", object, reg, value)
                 }
                 ReferenceExpression::Expression(expr) => {
-                    writeln!(f, "{}[{}] = {}", object, expr, value)
+                    write!(f, "{}[{}] = {}", object, expr, value)
                 }
             },
-            Statement::StoreRegister { id, value } => writeln!(f, "${} = {}", id, value),
-            Statement::UnknownStatement(x) => writeln!(f, "??? {}", x),
+            Statement::UnknownStatement(x) => write!(f, "??? {}", x),
             Statement::Return(value) => match value {
-                Some(value) => writeln!(f, "return {}", value),
-                None => writeln!(f, "return"),
+                Some(value) => write!(f, "return {}", value),
+                None => write!(f, "return"),
             },
-            Statement::ExpressionStatement(expression) => writeln!(f, "{}", expression),
+            Statement::ExpressionStatement(expression) => write!(f, "{}", expression),
             Statement::DanglingStack(stack) => {
-                writeln!(f, "//!! {}", stack)
+                write!(f, "{}", stack)
             }
             Statement::Pop(pop) => {
-                writeln!(f, "// pop: {}", pop)
+                write!(f, "// pop: {}", pop)
             }
         }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct FunctionDeclaration {
-    pub identifier: Option<ASIdentifier>,
-    pub flags: FunctionFlags,
-    pub parameters: Vec<ReferenceExpression>,
-    pub body: Vec<Statement>,
-}
-
-impl Display for FunctionDeclaration {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        if let Some(name) = &self.identifier {
-            write!(f, "function {}(", name)?;
-        } else {
-            write!(f, "function (")?;
-        }
-        for param in self.parameters.iter() {
-            write!(f, "{}", param)?
-        }
-        writeln!(f, ") {{")?;
-
-        for stmt in self.body.iter() {
-            write!(f, "  {}", stmt)?;
-        }
-
-        write!(f, "}}")
     }
 }

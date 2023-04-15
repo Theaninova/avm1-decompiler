@@ -48,3 +48,22 @@ function MeterMain() {
   mcMeterHari[GetFsView[0]][$1]._rotation = (AngleChangePointMAP[$1][($2 - 1)] + (($3[$1] - RealValChangePointMAP[$1][($2 - 1)]) * $4))
   $5[$1] = true
 ```
+
+## Branch recovery
+
+We can look at the stack in terms of superpositions.
+
+When a branch occurs, the stack items will be in a superposition.
+
+For example:
+
+```
+0  push 4
+1  push x
+2  gte       // x > 4
+3  jumpif 7  // if (x > 4) jump 9        # Open stack @3 end 7
+5  push "a"  // push("a"@3)
+6  jump 8    //                          # Pause stack @3 until 8
+7  push "b"  // push("b")   -> stack: ["a"]@3, ["b"]
+8  trace     // trace(x > 4 ? "a" : "b") # Open stack @3
+```
