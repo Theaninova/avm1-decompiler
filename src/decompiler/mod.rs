@@ -1,3 +1,4 @@
+mod components;
 mod read;
 mod vm;
 use crate::ast::binary_expr::BinaryExpressionType;
@@ -5,11 +6,13 @@ use crate::ast::block::Block;
 use crate::ast::expr::{Expression, ReferenceExpression, UnaryExpressionType};
 use crate::ast::statement::Statement;
 use crate::ast::variant::Variant;
+use crate::decompiler::components::binary_expression::decompile_binary_expr;
+use crate::decompiler::components::functions::decompile_define_function;
+use crate::decompiler::components::unary_expression::decompile_unary_expr;
 use crate::decompiler::vm::VirtualMachine;
 use itertools::Itertools;
 use std::borrow::Cow;
-use std::num::NonZeroU8;
-use swf::avm1::types::{Action, DefineFunction2, Value};
+use swf::avm1::types::{Action, Value};
 use swf::error::{Error, Result};
 use swf::UTF_8;
 
@@ -233,7 +236,6 @@ fn internal_decompile(mut vm: VirtualMachine) -> Result<Vec<Statement>> {
             Action::Return => {
                 let value = vm.pop()?;
                 vm.jump_return(Some(value));
-                // vm.append_statement(Statement::Return(Some(value)))
             }
 
             Action::Subtract => decompile_binary_expr(&mut vm, BinaryExpressionType::Subtract)?,
@@ -284,110 +286,4 @@ fn internal_decompile(mut vm: VirtualMachine) -> Result<Vec<Statement>> {
             }
         }
     }
-}
-
-fn decompile_unary_expr(
-    vm: &mut VirtualMachine,
-    expression_type: UnaryExpressionType,
-) -> Result<()> {
-    let target = vm.pop()?;
-    let is_negate = matches!(&expression_type, UnaryExpressionType::Not);
-    vm.push(match target {
-        Expression::Unary {
-            target,
-            expression_type: UnaryExpressionType::Not,
-        } if is_negate => *target,
-        Expression::Binary {
-            left,
-            right,
-            expression_type: BinaryExpressionType::Equals,
-        } if is_negate => Expression::Binary {
-            left,
-            right,
-            expression_type: BinaryExpressionType::NotEquals,
-        },
-        Expression::Binary {
-            left,
-            right,
-            expression_type: BinaryExpressionType::StrictEquals,
-        } if is_negate => Expression::Binary {
-            left,
-            right,
-            expression_type: BinaryExpressionType::NotStrictEquals,
-        },
-        Expression::Binary {
-            left,
-            right,
-            expression_type: BinaryExpressionType::NotEquals,
-        } if is_negate => Expression::Binary {
-            left,
-            right,
-            expression_type: BinaryExpressionType::Equals,
-        },
-        Expression::Binary {
-            left,
-            right,
-            expression_type: BinaryExpressionType::NotStrictEquals,
-        } if is_negate => Expression::Binary {
-            left,
-            right,
-            expression_type: BinaryExpressionType::StrictEquals,
-        },
-        _ => Expression::Unary {
-            target: Box::new(target),
-            expression_type,
-        },
-    });
-    Ok(())
-}
-
-fn decompile_binary_expr(
-    vm: &mut VirtualMachine,
-    expression_type: BinaryExpressionType,
-) -> Result<()> {
-    let right = vm.pop()?;
-    let left = vm.pop()?;
-    vm.push(Expression::Binary {
-        left: Box::new(left),
-        right: Box::new(right),
-        expression_type,
-    });
-    Ok(())
-}
-
-fn decompile_define_function(
-    vm: &mut VirtualMachine,
-    function: DefineFunction2,
-) -> Result<Expression> {
-    let mut registers: Vec<Expression> = (0..function.register_count)
-        .map(|_| Expression::Literal(Variant::Uninitialized))
-        .collect();
-    let mut params = Vec::<ReferenceExpression>::with_capacity(function.params.len());
-
-    for param in function.params.into_iter() {
-        let name = param.name.to_string_lossy(UTF_8);
-        let result = ReferenceExpression::Identifier(name);
-        let register_index = if let Some(index) = param.register_index {
-            index
-        } else {
-            NonZeroU8::new(1).unwrap()
-        };
-
-        params.push(result.clone());
-        registers[register_index.get() as usize] = Expression::Reference(result);
-    }
-
-    let body = decompile(VmData {
-        bytecode: function.actions,
-        registers,
-        constant_pool: vm.data.constant_pool,
-        strict: vm.data.strict,
-    })?;
-    let name = function.name.to_string_lossy(UTF_8);
-    Ok(Expression::Function {
-        identifier: if name.is_empty() { None } else { Some(name) },
-        flags: function.flags,
-        parameters: params,
-        body: Block { body },
-    })
 }

@@ -1,16 +1,16 @@
-use crate::ast::block::Block;
 use crate::ast::expr::Expression;
 use crate::ast::statement::Statement;
 use crate::ast::variant::Variant;
-use crate::ast::variant::Variant::Uninitialized;
 use crate::decompiler::read::read;
+use crate::decompiler::vm::loops::resolve_loop;
 use crate::decompiler::VmData;
-use itertools::Itertools;
 use std::borrow::Cow;
 use swf::avm1::read::Reader;
 use swf::avm1::types::Action;
 use swf::error::{Error, Result};
 use swf::extensions::ReadSwfExt;
+
+mod loops;
 
 impl<'a> From<VmData<'a>> for VirtualMachine<'a> {
     fn from(value: VmData<'a>) -> Self {
@@ -18,6 +18,7 @@ impl<'a> From<VmData<'a>> for VirtualMachine<'a> {
             reader: Reader::new(value.bytecode, 1),
             stack: vec![],
             block: vec![],
+            pending_branches: vec![],
             data: value,
             offset: 0,
         }
@@ -27,6 +28,7 @@ impl<'a> From<VmData<'a>> for VirtualMachine<'a> {
 pub struct VirtualMachine<'a> {
     stack: Vec<(usize, Expression)>,
     block: Vec<(usize, Statement)>,
+    pending_branches: Vec<(usize, usize)>,
     reader: Reader<'a>,
     offset: usize,
     pub data: VmData<'a>,
@@ -67,7 +69,9 @@ impl<'a> VirtualMachine<'a> {
             )))
         } else {
             while self.data.registers.len() < i {
-                self.data.registers.push(Expression::Literal(Uninitialized));
+                self.data
+                    .registers
+                    .push(Expression::Literal(Variant::Uninitialized));
             }
             self.data.registers.push(value);
             Ok(())
@@ -97,69 +101,7 @@ impl<'a> VirtualMachine<'a> {
         let target = (actual_position as i64 + offset as i64) as usize;
 
         if offset < 0 {
-            let statement = self.block.iter().find_position(|it| it.0 == target);
-
-            let condition = if let Some((
-                index,
-                (
-                    pos,
-                    Statement::If {
-                        condition,
-                        true_branch: _,
-                        false_branch: _,
-                    },
-                ),
-            )) = statement
-            {
-                Some((index, *pos, condition.clone()))
-            } else {
-                None
-            };
-
-            if let Some((index, pos, condition)) = condition {
-                let mut loop_block: Vec<Statement> =
-                    self.block.drain((index + 1)..).map(|it| it.1).collect();
-                self.block.pop().unwrap();
-
-                match (self.block.pop(), loop_block.pop()) {
-                    (Some((pos, declare)), Some(increment))
-                        if matches!(
-                            declare,
-                            Statement::ExpressionStatement(_) | Statement::SetVariable { .. }
-                        ) && matches!(
-                            increment,
-                            Statement::ExpressionStatement(_) | Statement::SetVariable { .. }
-                        ) =>
-                    {
-                        self.block.push((
-                            pos,
-                            Statement::For {
-                                increment: Box::new(increment),
-                                declare: Box::new(declare),
-                                condition,
-                                block: Block { body: loop_block },
-                            },
-                        ));
-                    }
-                    (declare, increment) => {
-                        if let Some(declare) = declare {
-                            self.block.push(declare)
-                        };
-                        if let Some(increment) = increment {
-                            loop_block.push(increment)
-                        };
-                        self.block.push((
-                            pos,
-                            Statement::While {
-                                condition,
-                                block: Block { body: loop_block },
-                            },
-                        ));
-                    }
-                }
-            } else {
-                println!("❌ Loop didn't resolve")
-            }
+            resolve_loop(self, target);
         }
 
         let jump = if offset < 0 {
@@ -184,12 +126,16 @@ impl<'a> VirtualMachine<'a> {
     pub fn jump_return(&mut self, value: Option<Expression>) {
         let actual_position = self.reader.pos(self.data.bytecode);
         let position = self.offset;
-        println!(
-            ">> [{:04}-{:04}] return {}",
-            position,
-            actual_position,
-            value.unwrap_or(Expression::Literal(Variant::Uninitialized))
-        );
+        if let Some(value) = value {
+            println!(
+                ">> [{:04}-{:04}] return {}",
+                position, actual_position, value,
+            );
+            self.append_statement(Statement::Return(Some(value)));
+        } else {
+            println!(">> [{:04}-{:04}] return", position, actual_position,);
+            self.append_statement(Statement::Return(None))
+        }
     }
 
     pub fn get_constant(&mut self, id: usize) -> String {
