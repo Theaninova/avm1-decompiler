@@ -1,4 +1,3 @@
-use crate::ast::block::Block;
 use crate::ast::expr::Expression;
 use crate::ast::statement::Statement;
 use crate::ast::variant::Variant;
@@ -97,7 +96,7 @@ impl<'a> VirtualMachine<'a> {
         )
     }
 
-    pub fn jump(&mut self, offset: i16, condition: Option<Expression>) {
+    pub fn jump(&mut self, offset: i16, condition: Option<Expression>) -> Result<()> {
         let actual_position = self.reader.pos(self.data.bytecode);
         let position = self.offset;
         let target = (actual_position as i64 + offset as i64) as usize;
@@ -105,13 +104,17 @@ impl<'a> VirtualMachine<'a> {
         log_jump(offset, position, actual_position, target, &condition);
 
         if offset < 0 {
-            resolve_loop(self, target);
+            resolve_loop(self, target)
         } else if let Some(condition) = condition {
             self.append_statement(Statement::If {
                 condition,
                 true_branch: None,
                 false_branch: None,
-            })
+            });
+            Ok(())
+        } else {
+            // TODO...
+            Ok(())
         }
     }
 

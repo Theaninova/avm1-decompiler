@@ -36,8 +36,8 @@ pub enum Expression {
         name: ReferenceExpression,
     },
     GetProperty {
-        object: ReferenceExpression,
-        name: ReferenceExpression,
+        path: Box<Expression>,
+        index: Box<Expression>,
     },
     Ternary {
         condition: Box<Expression>,
@@ -86,17 +86,18 @@ impl Display for Expression {
                 )
             }
             Expression::Reference(reference) => write!(f, "{}", reference),
-            Expression::GetMember { object, name } | Expression::GetProperty { object, name } => {
-                match name.clone() {
-                    ReferenceExpression::Identifier(identifier) => {
-                        write!(f, "{}.{}", object, identifier)
-                    }
-                    ReferenceExpression::Variable(var) => {
-                        write!(f, "{}[{}]", name, var)
-                    }
-                    ReferenceExpression::Register(reg) => write!(f, "{}[${}]", object, reg),
-                    ReferenceExpression::Expression(expr) => write!(f, "{}[{}]", object, expr),
+            Expression::GetMember { object, name } => match name.clone() {
+                ReferenceExpression::Identifier(identifier) => {
+                    write!(f, "{}.{}", object, identifier)
                 }
+                ReferenceExpression::Variable(var) => {
+                    write!(f, "{}[{}]", name, var)
+                }
+                ReferenceExpression::Register(reg) => write!(f, "{}[${}]", object, reg),
+                ReferenceExpression::Expression(expr) => write!(f, "{}[{}]", object, expr),
+            },
+            Expression::GetProperty { path, index } => {
+                write!(f, "getProperty({}, {})", path, index)
             }
             Expression::CallMethod { object, name, args } => {
                 let args: Vec<String> = args.iter().map(|it| it.to_string()).collect();

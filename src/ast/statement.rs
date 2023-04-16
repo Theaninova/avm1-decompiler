@@ -45,11 +45,13 @@ pub enum Statement {
     Play,
     Stop,
     Pop(Expression),
+    DecompileError(String),
 }
 
 impl Display for Statement {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
+            Statement::DecompileError(error) => write!(f, "/* Decompile Error: {} */", error),
             Statement::DefineLocal { left, right } => write!(f, "var {} = {}", left, right),
             Statement::DeclareLocal { name } => write!(f, "var {}", name),
             Statement::Trace(expr) => write!(f, "trace({})", expr),
